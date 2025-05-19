@@ -62,9 +62,12 @@ def check_video_status():
 
 # === COMMAND HANDLERS ===
 def handle_start(update: Update, context: CallbackContext):
-    reply_keyboard = [['1. Thêm ID theo dõi'], ['2. Kiểm tra danh sách ID']]
-    markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True)
-    update.message.reply_text("👋 Chào bạn! Hãy chọn thao tác:", reply_markup=markup)
+    reply_keyboard = [["1. Thêm ID theo dõi"], ["2. Kiểm tra danh sách ID"]]
+    markup = ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True, one_time_keyboard=True)
+    update.message.reply_text(
+        "👋 Chào bạn! Hãy chọn thao tác:",
+        reply_markup=markup
+    )
 
 def handle_text(update: Update, context: CallbackContext):
     text = update.message.text.strip()

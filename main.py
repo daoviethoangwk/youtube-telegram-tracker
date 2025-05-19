@@ -5,8 +5,8 @@ from datetime import datetime
 from telegram.ext import Updater, CommandHandler
 
 # === CẤU HÌNH ===
-TELEGRAM_BOT_TOKEN = "7901340967:AAFag68eBiTwMeDb6a-c6hKi_2R6dhkHNjs"      # ← Thay bằng token bot Telegram
-TELEGRAM_CHAT_ID = "1512472602"          # ← Thay bằng chat ID của bạn
+TELEGRAM_BOT_TOKEN = "7901340967:AAFag68eBiTwMeDb6a-c6hKi_2R6dhkHNjs"  # BOT TOKEN của bạn
+TELEGRAM_CHAT_ID = "1512472602"  # CHAT ID của bạn
 CONFIG_FILE = "config.txt"
 STATUS_HISTORY_FILE = "video_status_log.txt"
 CHECK_INTERVAL_MINUTES = 5
@@ -14,17 +14,17 @@ CHECK_INTERVAL_MINUTES = 5
 last_statuses = {}  # Lưu trạng thái của từng video
 
 # === ĐỌC VIDEO_ID TỪ FILE CẤU HÌNH ===
-def get_video_ids():
+def get_video_data():
     try:
         with open(CONFIG_FILE, "r") as f:
-            return [line.strip() for line in f.readlines()]
+            return [line.strip().split(" - ") for line in f.readlines()]
     except FileNotFoundError:
         return []  # Nếu không tìm thấy file, trả về danh sách rỗng
 
-def set_video_ids(new_ids):
+def set_video_data(new_data):
     with open(CONFIG_FILE, "w") as f:
-        for video_id in new_ids:
-            f.write(video_id + "\n")
+        for name, video_id in new_data:
+            f.write(f"{name} - {video_id}\n")
 
 def get_youtube_url(video_id):
     return f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
@@ -39,9 +39,9 @@ def send_telegram_message(message):
         print(f"❌ Lỗi gửi Telegram: {e}")
 
 # === GHI LOG TRẠNG THÁI ===
-def log_status(video_id, status):
+def log_status(video_name, video_id, status):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    message = f"[{timestamp}] Video {video_id} status: {status}"
+    message = f"[{timestamp}] Video '{video_name}' (ID: {video_id}) status: {status}"
     with open(STATUS_HISTORY_FILE, "a") as f:
         f.write(message + "\n")
     print(message)
@@ -50,9 +50,9 @@ def log_status(video_id, status):
 # === KIỂM TRA TRẠNG THÁI VIDEO ===
 def check_video_status():
     global last_statuses
-    video_ids = get_video_ids()
+    video_data = get_video_data()
     
-    for video_id in video_ids:
+    for video_name, video_id in video_data:
         try:
             url = get_youtube_url(video_id)
             response = requests.get(url)
@@ -65,7 +65,7 @@ def check_video_status():
 
         # Nếu trạng thái thay đổi, ghi log và gửi thông báo
         if last_statuses.get(video_id) != status:
-            log_status(video_id, status)
+            log_status(video_name, video_id, status)
             last_statuses[video_id] = status
 
 # === /history LỌC LỊCH SỬ ===
@@ -88,21 +88,23 @@ def handle_history(update, context):
 
     update.message.reply_text(history_text)
 
-# === /setvideo <ID> ĐỔI VIDEO ===
+# === /setvideo <Tên video> <ID video> ĐỔI VIDEO ===
 def handle_setvideo(update, context):
-    if not context.args:
-        update.message.reply_text("⚠️ Bạn cần nhập Video ID.\nVD: /setvideo dQw4w9WgXcQ")
+    if len(context.args) < 2:
+        update.message.reply_text("⚠️ Bạn cần nhập Tên video và Video ID.\nVD: /setvideo Video1 dQw4w9WgXcQ")
         return
     
-    new_id = context.args[0]
-    video_ids = get_video_ids()
+    video_name = context.args[0]
+    video_id = context.args[1]
+    video_data = get_video_data()
 
-    if new_id not in video_ids:
-        video_ids.append(new_id)
-        set_video_ids(video_ids)
-        update.message.reply_text(f"✅ Đã thêm video {new_id} vào danh sách theo dõi.")
+    # Kiểm tra nếu video đã có trong danh sách
+    if any(v_id == video_id for _, v_id in video_data):
+        update.message.reply_text(f"⚠️ Video {video_name} đã có trong danh sách theo dõi.")
     else:
-        update.message.reply_text(f"⚠️ Video {new_id} đã có trong danh sách theo dõi.")
+        video_data.append((video_name, video_id))
+        set_video_data(video_data)
+        update.message.reply_text(f"✅ Đã thêm video '{video_name}' vào danh sách theo dõi.")
 
 # === KHỞI ĐỘNG TELEGRAM BOT ===
 def setup_bot():
